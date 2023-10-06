@@ -1,7 +1,7 @@
 name: Integration Test for CI
 
 on:
-  push:
+  pull_request:
     branches:
       - main
 
