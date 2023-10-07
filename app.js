@@ -9,14 +9,14 @@ const AssignmentModel = require('./models/AssignmentModel.js')
 //dvsnvs
 const app = express();
 app.use(bodyParser.json());
-const PORT = 6060;
+const PORT = 8080;
 
 const filePath = './user.csv'; 
 loadUserCSV(filePath);
 
 
 
-const sequelize = new Sequelize('mysql://root:newone@localhost', {
+const sequelize = new Sequelize('mysql://root:Sqlsru@19@localhost', {
   dialect: 'mysql',
 });
 

@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 const User = require('./UserModel'); // Import the User model
 
-const sequelize = new Sequelize('usersdb', 'root', 'newone', {
+const sequelize = new Sequelize('usersdb', 'root', 'Sqlsru@19', {
   host: '127.0.0.1',
   dialect: 'mysql',
   dialectOptions: {

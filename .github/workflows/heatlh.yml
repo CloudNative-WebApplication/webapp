@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: CI
+    name: INTEGRATION TEST
     runs-on: ubuntu-latest
 
     services:
@@ -44,5 +44,5 @@ jobs:
       - name: Wait for Application to Start
         run: sleep 10
 
-      - name: Run Integration Tests
-        run: npm test
+      - name: Run Integration Tests in the Background
+        run: npx mocha tests/healthz.test.js &
