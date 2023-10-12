@@ -1,9 +1,9 @@
 first_name,last_name,email,password
 john,doe,john.doe@example.com,abc123
 jane,doe,jane.doe@example.com,xyz456
-ramba,pus,s@example.com,abcd
+ramba,den,r@example.com,abcd
 sep,rate,df@gm.com,1234
 Jane,Smith,jane.smith@example.com,$2b$10$qIvknMxFHMaKPg9iFKR/huOnGkm3ZB4/jUzHriptwtNW1iM8PJK3G
-ankith,reddy,ankith.doe@example.com,$2b$10$9Y2BB4VPjKeDyD1CxMnkee6Uh/0M1dVS9BXZVz/XADq1jjPQNGRee
+sruthi,siva,siva.s@example.com,$2b$10$9Y2BB4VPjKeDyD1CxMnkee6Uh/0M1dVS9BXZVz/XADq1jjPQNGRee
 nani,n,man@example.com,$2b$10$8.YLQ/B8ivzZeTJ0TiyHPuM/60pS2W5Vusq6fGd47p2E8.c9Io96W
 a,b,c@c.com,123

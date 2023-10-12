@@ -16,7 +16,7 @@ loadUserCSV(filePath);
 
 
 
-const sequelize = new Sequelize('mysql://root:Sqlsru@19@localhost', {
+const sequelize = new Sequelize('mysql://root:Sqlsru@19@127.0.0.1', {
   dialect: 'mysql',
 });
 
@@ -389,6 +389,10 @@ app.delete('/assignments/:id',rejectRequestsWithBody, authenticate, async (req, 
 });
 
 
+app.patch('/assignments/:id', (req, res) => {
+  res.status(405).json({ error: 'Update (PATCH) is not allowed' });
+});
+
 
 
 // Get Assignment by ID
@@ -419,40 +423,50 @@ app.get('/assignments/:assignmentId', rejectRequestsWithBody, authenticate, asyn
 
 
 // Update Assignment by ID (Authenticated Users Only)
-app.put('/assignments/:id', authenticate, async (req, res) => {
+app.put('/assignments/:id', async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    const authenticatedUserId = req.user.id; 
+    const updatedAssignmentData = req.body;
 
-    // Find the assignment by ID
     const assignment = await AssignmentModel.findByPk(assignmentId);
 
     if (!assignment) {
       return res.status(404).json({ error: 'Assignment not found' });
     }
 
-    // Check if the authenticated user is the assignment owner
-    if (assignment.user_id !== authenticatedUserId) {
-      return res.status(403).json({ error: 'Permission denied. You can only update your own assignments.' });
-    }
-
-    // Update assignment data here
-    const updatedAssignmentData = req.body;
-
-    if (updatedAssignmentData.name) {
+    // Validate and update each field
+    if ('name' in updatedAssignmentData && updatedAssignmentData.name !== null) {
       assignment.name = updatedAssignmentData.name;
+    } else {
+      return res.status(400).json({ error: 'name is required and cannot be null.' });
     }
 
-    if (updatedAssignmentData.points) {
-      assignment.points = updatedAssignmentData.points;
+    if ('points' in updatedAssignmentData && updatedAssignmentData.points !== null) {
+      const points = parseInt(updatedAssignmentData.points, 10);
+      if (!isNaN(points) && points >= 1 && points <= 10) {
+        assignment.points = points;
+      } else {
+        return res.status(400).json({ error: 'Invalid value for points. It must be an integer between 1 and 10.' });
+      }
+    } else {
+      return res.status(400).json({ error: 'points is required and cannot be null.' });
     }
 
-    if (updatedAssignmentData.num_of_attempts) {
-      assignment.num_of_attempts = updatedAssignmentData.num_of_attempts;
+    if ('num_of_attempts' in updatedAssignmentData && updatedAssignmentData.num_of_attempts !== null) {
+      const num_of_attempts = parseInt(updatedAssignmentData.num_of_attempts, 10);
+      if (!isNaN(num_of_attempts) && num_of_attempts >= 1) {
+        assignment.num_of_attempts = num_of_attempts;
+      } else {
+        return res.status(400).json({ error: 'Invalid value for num_of_attempts. It must be an integer greater than or equal to 1.' });
+      }
+    } else {
+      return res.status(400).json({ error: 'num_of_attempts is required and cannot be null.' });
     }
 
-    if (updatedAssignmentData.deadline) {
+    if ('deadline' in updatedAssignmentData && updatedAssignmentData.deadline !== null) {
       assignment.deadline = updatedAssignmentData.deadline;
+    } else {
+      return res.status(400).json({ error: 'deadline is required and cannot be null.' });
     }
 
     // Update the assignment_updated field
@@ -461,7 +475,7 @@ app.put('/assignments/:id', authenticate, async (req, res) => {
     // Save the updated assignment
     await assignment.save();
 
-    res.status(200).json(assignment);
+    res.status(204).json('');
   } catch (error) {
     console.error('Error updating assignment:', error);
     res.status(500).json({ error: 'Internal Server Error' });
