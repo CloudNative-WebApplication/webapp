@@ -10,21 +10,21 @@ packer {
 variable "aws_region" {
   type        = string
   description = "The aws region ID to use"
-  default = "us-east-1"
+  default     = "us-east-1"
 }
 
 
 variable "demo_account_id" {
   type        = string
   description = "this is the demo accout id "
-  default = "389739722226"
-  
+  default     = "389739722226"
+
 }
 
 variable "source_ami" {
   type        = string
   description = "The source AMI ID to use as a base"
-  default = "ami-06db4d78cb1d3bbf9"
+  default     = "ami-06db4d78cb1d3bbf9"
 }
 
 
