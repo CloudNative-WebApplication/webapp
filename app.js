@@ -6,14 +6,11 @@ const { Sequelize } = require('sequelize');
 const bcrypt = require('bcrypt');
 const UserModel = require('./models/UserModel.js'); 
 const AssignmentModel = require('./models/AssignmentModel.js')
-//dvsnvs
 const app = express();
 app.use(bodyParser.json());
 const PORT = 8080;
-
 const filePath = './user.csv'; 
 loadUserCSV(filePath);
-
 
 
 const sequelize = new Sequelize('mysql://root:Sqlsru@19@127.0.0.1', {
@@ -29,64 +26,34 @@ sequelize.query('CREATE DATABASE IF NOT EXISTS usersdb')
   });
 
 
-async function createDatabase() {
+async function buildDatabase() {
   try {
-    await sequelize.query('CREATE DATABASE IF NOT EXISTS usersdb;');
-    console.log('Database created successfully.');
+    await sequelize.query('BUILD DATABASE IF NOT EXISTS usersdb;');
+    console.log('Database built successfully.');
   } catch (error) {
-    console.error('Error creating database:', error);
+    console.error('Error building database:', error);
   }
 }
 
-createDatabase().then(() => {
+buildDatabase().then(() => {
   // Now, you can attempt to authenticate and start the application
-  testDatabaseConnection().then(startup);
+  checkDatabaseConnection().then(start);
 });
 
 
 
-async function testDatabaseConnection() {
+async function checkDatabaseConnection() {
   try {
     await sequelize.authenticate();
     console.log('Database connection has been established successfully.');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
-    process.exit(1); // Exit the application if the database connection fails
-  }
-}
-
-async function hashPassword(password) {
-  // Use BCrypt to hash the password
-  const saltRounds = 10;
-  return bcrypt.hash(password, saltRounds);
-}
-
-async function insertOrUpdateUser(user) {
-  try {
-    const existingUser = await UserModel.findOne({ where: { email: user.email } });
-
-    if (existingUser) {
-      console.log(`User with email ${user.email} already exists.`);
-    } else {
-      // Hash the user's password before storing it
-      const hashedPassword = await hashPassword(user.password);
-
-      // Create a new user record with the hashed password
-      await UserModel.create({
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        password: hashedPassword, // Store the hashed password
-      });
-      console.log(`User with email ${user.email} inserted.`);
-    }
-  } catch (error) {
-    console.error('Error inserting/updating user:', error.message);
+     // Exit the application if the database connection fails
   }
 }
 
 // Middleware to reject requests with a request body
-const rejectRequestsWithBody = (req, res, next) => {
+const rejectBody = (req, res, next) => {
   const contentLength = req.headers['content-length'];
   if (contentLength && parseInt(contentLength) > 0) {
     return res.status(400).json({ error: 'Request body is not allowed for this endpoint' });
@@ -99,8 +66,37 @@ const rejectRequestsWithBody = (req, res, next) => {
   next();
 };
 
+async function addOrEditUser(user) {
+  try {
+    const existingUser = await UserModel.findOne({ where: { email: user.email } });
 
-async function startup() {
+    if (existingUser) {
+      console.log(`User with email ${user.email} already exists.`);
+    } else {
+      // Hash the user's password before storing it
+      const BcryptedPassword = await BcryptPassword(user.password);
+
+      // Create a new user record with the hashed password
+      await UserModel.create({
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        password: BcryptedPassword, // Store the hashed password
+      });
+      console.log(`User with email ${user.email} inserted.`);
+    }
+  } catch (error) {
+    console.error('Error adding/editing user:', error.message);
+  }
+}
+
+async function BcryptPassword(password) {
+  // Use BCrypt to hash the password
+  const saltRounds = 10;
+  return bcrypt.hash(password, saltRounds);
+}
+
+async function start() {
   try {
     const fileContent = fs.readFileSync(filePath, 'utf8');
     const rows = fileContent.trim().split('\n');
@@ -129,7 +125,7 @@ async function startup() {
         console.error('Invalid user data:', user);
         continue;
       }
-      await insertOrUpdateUser(user);
+      await addOrEditUser(user);
     }
 
     const fetchedUsers = await UserModel.findAll();
@@ -143,8 +139,12 @@ async function startup() {
 
 app.use(express.json());
      
+
+
+
+
 app.route('/healthz')
-  .get(rejectRequestsWithBody, async (req, res) => {
+  .get(rejectBody, async (req, res) => {
     try {
       if (req.method === 'GET') {
         if (req.body && Object.keys(req.body).length > 0) {
@@ -174,67 +174,10 @@ app.route('/healthz')
 
 
 
-// Modify the route for the /users endpoint to handle POST and GET only
-app.route('/users')
-  .post(async (req, res) => {
-    try {
-      // Specify the fields you want to accept
-      const allowedFields = ['email', 'password', 'first_name', 'last_name'];
+// Call the checkDatabaseConnection and start functions when your application starts
+checkDatabaseConnection().then(start);
 
-      // Extract only the allowed fields from the request body
-      const userData = {};
-      for (const field of allowedFields) {
-        if (req.body[field]) {
-          userData[field] = req.body[field];
-        }
-      }
-
-      // Check if all required fields are present
-      if (!userData.email || !userData.password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-      }
-
-      // Check if a user with the same email already exists in the database
-      const existingUser = await UserModel.findOne({ where: { email: userData.email } });
-
-      if (existingUser) {
-        return res.status(409).json({ error: 'User with the same email already exists' });
-      }
-
-      // Hash the password using BCrypt
-      const hashedPassword = await hashPassword(userData.password);
-
-      // Insert the user into the database
-      await UserModel.create({
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        email: userData.email,
-        password: hashedPassword,
-      });
-
-      // Append the user data to the CSV file
-      const csvData = `${userData.first_name},${userData.last_name},${userData.email},${hashedPassword}\n`;
-      fs.writeFileSync(filePath, csvData, { flag: 'a' }); // 'a' flag appends data and creates the file if it doesn't exist
-
-      res.status(201).json({ message: 'User inserted successfully' });
-    } catch (error) {
-      console.error('Error inserting user:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
-  })
-
-
-  // Add a custom route handler for DELETE requests
-  .delete((req, res) => {
-    res.status(405).json({ error: 'Deletion is not allowed' });
-  });
-
-// Call the testDatabaseConnection and startup functions when your application starts
-testDatabaseConnection().then(startup);
-
-
-
-async function hashPassword(password) {
+async function BcryptPassword(password) {
   const saltRounds = 10;
   return bcrypt.hash(password, saltRounds);
 }
@@ -290,12 +233,26 @@ app.post('/assignments', authenticate, async (req, res) => {
     // Extract only the allowed fields from the request body
     const assignmentData = {};
     for (const field of allowedFields) {
-      if (req.body[field]) {
+      if (req.body[field] !== undefined) { // Check for the field's presence in the request body
         assignmentData[field] = req.body[field];
+
+        // Additional validation for specific fields
+        if (field === 'name' && typeof assignmentData.name !== 'string') {
+          return res.status(400).json({ error: 'Invalid data type for name field' });
+        }
+        if (field === 'points' && (typeof assignmentData.points !== 'number' || assignmentData.points < 1 || assignmentData.points > 10)) {
+          return res.status(400).json({ error: 'Invalid data for points field; it must be a number between 1 and 10' });
+        }
+      }
+    }
+    // Check for extra fields in the request body
+    for (const field in req.body) {
+      if (!allowedFields.includes(field)) {
+        return res.status(400).json({ error: `Invalid field: ${field}` });
       }
     }
 
-    // Validate assignment data here
+    // Ensure all required fields are present
     if (
       !assignmentData.name ||
       !assignmentData.points ||
@@ -303,11 +260,6 @@ app.post('/assignments', authenticate, async (req, res) => {
       !assignmentData.deadline
     ) {
       return res.status(400).json({ error: 'All assignment fields are required' });
-    }
-
-    // Ensure assignment points are between 1 and 10
-    if (assignmentData.points < 1 || assignmentData.points > 10) {
-      return res.status(400).json({ error: 'Assignment points must be between 1 and 10' });
     }
 
     // Get the authenticated user's email from the request
@@ -335,11 +287,8 @@ app.post('/assignments', authenticate, async (req, res) => {
   }
 });
 
-
-
-
 // Get all Assignments of a user by authentication
-app.get('/assignments',rejectRequestsWithBody, authenticate, async (req, res) => {
+app.get('/assignments',rejectBody, authenticate, async (req, res) => {
   try {
     // Use the authenticated user from the middleware
     const authenticatedUser = req.user;
@@ -362,7 +311,7 @@ app.get('/assignments',rejectRequestsWithBody, authenticate, async (req, res) =>
 
 
 // Delete Assignment by ID
-app.delete('/assignments/:id',rejectRequestsWithBody, authenticate, async (req, res) => {
+app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.id;
 
@@ -396,7 +345,7 @@ app.patch('/assignments/:id', (req, res) => {
 
 
 // Get Assignment by ID
-app.get('/assignments/:assignmentId', rejectRequestsWithBody, authenticate, async (req, res) => {
+app.get('/assignments/:assignmentId', rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.assignmentId;
 
@@ -484,7 +433,7 @@ app.put('/assignments/:id', async (req, res) => {
 
 
 
-testDatabaseConnection().then(() => {
+checkDatabaseConnection().then(() => {
   app.listen(PORT, () => {
     console.log('Server running on ' + PORT);
   });
