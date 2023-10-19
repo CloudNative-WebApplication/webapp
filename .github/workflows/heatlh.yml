@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: INTEGRATION TEST
+    name: CI
     runs-on: ubuntu-latest
 
     services:
@@ -36,13 +36,28 @@ jobs:
         run: |
           mysql -h 127.0.0.1 -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} -D ${{ secrets.MYSQL_DATABASE }} -e "SHOW DATABASES;"
 
-      - name: Start Node.js Application in Background
-        run: |
-          node app.js &
-          sleep 10
-
-      - name: Wait for Application to Start
-        run: sleep 10
-
       - name: Run Integration Tests in the Background
-        run: npx mocha tests/healthz.test.js &
+        run: npx mocha tests/test.js &
+
+      - name: Format Packer Template
+        run: |
+
+          # Run packer fmt and capture the exit code
+           packer fmt -check .
+
+          # Check the exit code and fail the workflow if changes were made
+          if [ $? -ne 0 ]; then
+           echo "Packer template formatting check failed. Please run 'packer fmt' locally and commit the changes."
+           exit 1
+          fi
+
+      - name: Validate Packer Template
+        run: |
+          # Run packer validate and capture the exit code
+          packer validate -syntax-only .
+
+          # Check the exit code and fail the workflow if validation fails
+          if [ $? -ne 0 ]; then
+            echo "Packer template validation failed. Please ensure the template is correct before merging the pull request."
+            exit 1
+          fi
