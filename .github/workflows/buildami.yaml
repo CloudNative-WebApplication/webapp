@@ -8,14 +8,39 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 14
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test MySQL Connection
+        run: |
+          mysql -h 127.0.0.1 -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} -D ${{ secrets.MYSQL_DATABASE }} -e "SHOW DATABASES;"
+
+      - name: Run Integration Tests in the Background
+        run: npx mocha tests/test.js &
+
       - name: Create Zip File
         run: |
+          rm -r node_modules
           zip -r codefile.zip .
 
       - name: Upload Zip File
@@ -25,10 +50,8 @@ jobs:
           path: codefile.zip
 
       - name: Install Packer plugin
-        run: |
-         packer plugins install github.com/hashicorp/amazon
-        if: always()
-      
+        run: packer plugins install github.com/hashicorp/amazon
+
       - name: Run Packer
         run: |
           # Install Packer
@@ -43,4 +66,4 @@ jobs:
                      -var "aws_region=${{ secrets.AWS_REGION }}" \
                      -var "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY}}" \
                      -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY}}" \
-                      ami.pkr.hcl
+                      ami.pkr.hcl 
