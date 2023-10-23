@@ -42,10 +42,10 @@ variable "aws_secret_access_key" {
 
 source "amazon-ebs" "myami" {
   ami_name      = "CSYE6225_${formatdate("YYYY_MM_DD_hh_mm_ss", timestamp())}"
-  source_ami    = var.source_amis
+  source_ami    = var.source_ami
   instance_type = "t2.micro"
   ssh_username  = "admin"
-  region        = var.aws_regions
+  region        = var.aws_region
 
   access_key = var.aws_access_key
   secret_key = var.aws_secret_access_key
