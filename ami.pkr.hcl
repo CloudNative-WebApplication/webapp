@@ -45,7 +45,7 @@ source "amazon-ebs" "myami" {
   source_ami    = var.source_amis
   instance_type = "t2.micro"
   ssh_username  = "admin"
-  region        = var.aws_region
+  region        = var.aws_regions
 
   access_key = var.aws_access_key
   secret_key = var.aws_secret_access_key
