@@ -7,7 +7,7 @@ packer {
   }
 }
 
-variable "aws_region"   {
+variable "aws_region" {
   type        = string
   description = "The aws region ID to use"
   default     = "us-east-1"
@@ -42,7 +42,7 @@ variable "aws_secret_access_key" {
 
 source "amazon-ebs" "myami" {
   ami_name      = "CSYE6225_${formatdate("YYYY_MM_DD_hh_mm_ss", timestamp())}"
-  source_ami    = var.source_ami
+  source_ami    = var.source_amis
   instance_type = "t2.micro"
   ssh_username  = "admin"
   region        = var.aws_region
