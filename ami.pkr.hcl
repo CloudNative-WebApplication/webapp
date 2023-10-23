@@ -7,7 +7,7 @@ packer {
   }
 }
 
-variable "aws_region" {
+variable "aws_region"   {
   type        = string
   description = "The aws region ID to use"
   default     = "us-east-1"
