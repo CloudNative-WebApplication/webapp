@@ -16,6 +16,8 @@ const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
   host: DB_HOST,
 });
 
+//ko
+
 const Assignment = sequelize.define('Assignment', {
   id: {
     type: DataTypes.INTEGER,
