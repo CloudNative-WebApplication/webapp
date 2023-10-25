@@ -1,0 +1,12 @@
+[Unit]
+Description=My Node.js Application
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/home/admin
+ExecStart=/usr/bin/node /home/admin/app.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

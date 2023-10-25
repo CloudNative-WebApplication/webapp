@@ -1,8 +1,20 @@
 const { Sequelize, DataTypes } = require('sequelize');
+const path = require('path');
+const dotenv = require('dotenv');
 
-const sequelize = new Sequelize('usersdb', 'root', 'Sqlsru@19', {
-  host: '127.0.0.1',
+// Load the .env file from the appropriate directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Access environment variables
+const DB_USERNAME = process.env.DB_USERNAME;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_HOST = process.env.DB_HOST;
+const DB_NAME = process.env.DB_NAME
+
+
+const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
   dialect: 'mysql',
+  host: DB_HOST,
 });
 
 const User = sequelize.define('User', {
