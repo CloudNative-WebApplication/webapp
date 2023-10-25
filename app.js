@@ -11,24 +11,28 @@ app.use(bodyParser.json());
 const PORT = 8080;
 const filePath = './user.csv'; 
 loadUserCSV(filePath);
+const dotenv = require('dotenv');
 
 
-const sequelize = new Sequelize('mysql://root:Sqlsru@19@127.0.0.1', {
+dotenv.config();
+
+// Access environment variables
+const DATABASE_URL = process.env.DATABASE_URL;
+const DB_USERNAME = process.env.DB_USERNAME;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_NAME = process.env.DB_NAME
+
+const sequelize = new Sequelize(DATABASE_URL, {
   dialect: 'mysql',
+  username: DB_USERNAME,
+  password: DB_PASSWORD,
 });
 
-sequelize.query('CREATE DATABASE IF NOT EXISTS usersdb')
-  .then(() => {
-    console.log('Database created (if it did not exist)');
-  })
-  .catch((error) => {
-    console.error('Error creating database:', error);
-  });
 
 
 async function buildDatabase() {
   try {
-    await sequelize.query('BUILD DATABASE IF NOT EXISTS usersdb;');
+    await sequelize.query(`CREATE DATABASE IF NOT EXISTS ${DB_NAME};`);
     console.log('Database built successfully.');
   } catch (error) {
     console.error('Error building database:', error);
@@ -39,7 +43,6 @@ buildDatabase().then(() => {
   // Now, you can attempt to authenticate and start the application
   checkDatabaseConnection().then(start);
 });
-
 
 
 async function checkDatabaseConnection() {
