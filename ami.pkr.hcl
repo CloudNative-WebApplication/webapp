@@ -75,19 +75,24 @@ build {
 
   provisioner "shell" {
     inline = [
+      "sudo groupadd csye6225",
+      "sudo useradd -s /bin/false -g csye6225 -d /opt/csye6225 -m csye6225",
       "sudo apt update",
-      "sudo apt install -y nodejs npm",
-      "sudo apt update",
+      "sudo mv codefile.zip /opt/csye6225/ ",
+      "echo 'unzipping the file'",
+      "cd /opt/csye6225/",
+      "echo 'changing the permissions of script file and running the script'",
       "sudo apt install -y unzip",
-      "unzip codefile.zip",
-      "npm install",
-      "npm uninstall bcrypt",
-      "npm install bcrypt",
+      "sudo unzip codefile.zip -d .",
+      "sudo chmod +x ./script.sh",
+      "sudo chown -R csye6225:csye6225 /opt/csye6225",
+      "sudo ./script.sh",
       "sudo apt remove git -y",
+      "ls -al",
       "sudo mv myapp.service /etc/systemd/system/",
       "sudo systemctl daemon-reload",
-      "sudo systemctl enable myapp.service",
-      "sudo systemctl start myapp.service",
+      "sudo systemctl enable myapp",
+      "sudo systemctl start myapp"
     ]
   }
 
