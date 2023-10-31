@@ -1,12 +1,13 @@
 [Unit]
 Description=My Node.js Application
-After=network.target
+After=cloud-final.Service
 
 [Service]
-User=root
-WorkingDirectory=/home/admin
-ExecStart=/usr/bin/node /home/admin/app.js
+User=csye6225
+WorkingDirectory=/opt/csye6225
+ExecStart=/usr/bin/node /opt/csye6225/app.js
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=cloud-init.target
