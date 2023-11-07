@@ -1,6 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
-const { v4: uuidv4 } = require('uuid');
-// const User = require('./UserModel'); 
+const User = require('./UserModel'); // Import the User model
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -21,10 +20,9 @@ const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
 
 const Assignment = sequelize.define('Assignment', {
   id: {
-    type: DataTypes.UUID,
-    defaultValue: () => uuidv4(),
+    type: DataTypes.INTEGER,
     primaryKey: true,
-    // autoIncrement: true,
+    autoIncrement: true,
   },
   name: {
     type: DataTypes.STRING,
@@ -59,7 +57,7 @@ const Assignment = sequelize.define('Assignment', {
     readOnly: true,
   },
   user_id: { // Add this column for the user who created the assignment
-    type: DataTypes.UUID,
+    type: DataTypes.INTEGER,
     allowNull: false,
   },
 }, {
@@ -67,7 +65,7 @@ const Assignment = sequelize.define('Assignment', {
   timestamps: false,
 });
 
-// Assignment.belongsTo(User, { foreignKey: 'user_id' });
+Assignment.belongsTo(User, { foreignKey: 'user_id' });
 
 
 module.exports = Assignment;

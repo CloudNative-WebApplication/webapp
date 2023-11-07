@@ -12,9 +12,29 @@ const PORT = 8080;
 const filePath = './user.csv'; 
 loadUserCSV(filePath);
 const dotenv = require('dotenv');
+// const morgan = require('morgan');
+// const customFormat = ':method :url :status :response-time ms';
+const winston = require('winston');
 
+// Create a logger
+const logger = winston.createLogger({
+  level: 'silly',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.simple()
+  ),
+  transports: [
+    new winston.transports.Console(), // Log to console
+    new winston.transports.File({ filename: 'webapp.log' }), 
+  ],
+});
+app.use((req, res, next) => {
+  logger.info(`Received ${req.method} request to ${req.url}`);
+  next();
+});
 
 dotenv.config();
+// app.use(morgan('combined'));
 
 // Access environment variables
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -34,8 +54,10 @@ async function buildDatabase() {
   try {
     await sequelize.query(`CREATE DATABASE IF NOT EXISTS ${DB_NAME};`);
     console.log('Database built successfully.');
+    logger.info('Database built successfully');
   } catch (error) {
     console.error('Error building database:', error);
+    logger.error(' Error building database');
   }
 }
 
@@ -49,8 +71,10 @@ async function checkDatabaseConnection() {
   try {
     await sequelize.authenticate();
     console.log('Database connection has been established successfully.');
+    logger.info('Database connection has been established successfully');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
+    logger.error('Unable to connect to the database');
      // Exit the application if the database connection fails
   }
 }
@@ -59,10 +83,12 @@ async function checkDatabaseConnection() {
 const rejectBody = (req, res, next) => {
   const contentLength = req.headers['content-length'];
   if (contentLength && parseInt(contentLength) > 0) {
+    logger.error('Request body was not allowed');
     return res.status(400).json({ error: 'Request body is not allowed for this endpoint' });
   }
 
   if (Object.keys(req.query).length > 0) {
+    logger.error('Query parameter was not allowed');
     return res.status(400).json({ error: 'Query parameters are not allowed for this endpoint' });
   }
 
@@ -75,6 +101,7 @@ async function addOrEditUser(user) {
 
     if (existingUser) {
       console.log(`User with email ${user.email} already exists.`);
+      logger.info(`User with email ${user.email} already exists.`);
     } else {
       // Hash the user's password before storing it
       const BcryptedPassword = await BcryptPassword(user.password);
@@ -86,10 +113,13 @@ async function addOrEditUser(user) {
         email: user.email,
         password: BcryptedPassword, // Store the hashed password
       });
+      
       console.log(`User with email ${user.email} inserted.`);
+      logger.info(`User with email ${user.email} inserted.`);
     }
   } catch (error) {
     console.error('Error adding/editing user:', error.message);
+    logger.error('Error adding/editing user');
   }
 }
 
@@ -118,13 +148,16 @@ async function start() {
 
     await UserModel.sync();
     console.log('User model synchronized with the database.');
+    logger.info('User model synchronized with the database.');
 
     // Synchronize the AssignmentModel with the database
     await AssignmentModel.sync();
     console.log('Assignment model synchronized with the database.');
+    logger.info('Assignment model synchronized with the database.');
 
     for (const user of users) {
       if (!user.email || !user.password) {
+        logger.error('Invalid user data');
         console.error('Invalid user data:', user);
         continue;
       }
@@ -134,16 +167,15 @@ async function start() {
     const fetchedUsers = await UserModel.findAll();
     fetchedUsers.forEach((user) => {
       console.log(`User ID: ${user.id}, First Name: ${user.first_name}, Last Name: ${user.last_name}, Email: ${user.email}`);
+      logger.info('User found');
     });
   } catch (error) {
     console.error('Error loading and creating user accounts:', error.message);
+    logger.error('Error loading and creating user accounts');
   }
 }
 
 app.use(express.json());
-     
-
-
 
 
 app.route('/healthz')
@@ -153,6 +185,7 @@ app.route('/healthz')
         if (req.body && Object.keys(req.body).length > 0) {
           // Reject the request with a 400 Bad Request status code
           res.status(400).send('GET requests should not include a request body');
+          logger.warn('GET request with a request body received');
         } else {
           // Handle GET request
 
@@ -161,27 +194,27 @@ app.route('/healthz')
 
           res.setHeader('Cache-Control', 'no-cache');
           res.status(200).send()
+          logger.http('Method allowed.');
         }
-      } else {
-        res.status(405).json({ error: 'Method Not Allowed' });
-      }
+      } 
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
+      res.status(500).json({ error: 'Server Error' });
+      logger.error('Internal Server Error');
     }
   })
   .all((req, res) => {
     res.status(405).json({ error: 'Method Not Allowed' });
+    logger.error('Method Not Allowed');
+
   });
-
-
-
 
 // Call the checkDatabaseConnection and start functions when your application starts
 checkDatabaseConnection().then(start);
 
 async function BcryptPassword(password) {
   const saltRounds = 10;
+  logger.info('Password hashed successfully');
   return bcrypt.hash(password, saltRounds);
 }
 
@@ -192,6 +225,7 @@ const authenticate = async (req, res, next) => {
 
   if (!authHeader) {
     res.status(401).json({ error: 'Unauthorized' });
+    logger.error('Unauthorized');
     return;
   }
 
@@ -201,6 +235,7 @@ const authenticate = async (req, res, next) => {
 
   if (!providedEmail || !providedPassword) {
     res.status(401).json({ error: 'Unauthorized' });
+    logger.error('Unauthorized');
     return;
   }
 
@@ -209,6 +244,7 @@ const authenticate = async (req, res, next) => {
 
     if (!user || !(await bcrypt.compare(providedPassword, user.password))) {
       res.status(401).json({ error: 'Unauthorized' });
+      logger.error('Unauthorized');
       return;
     }
 
@@ -218,6 +254,7 @@ const authenticate = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Authentication error:', error);
+    logger.error('Authentication error');
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -241,16 +278,20 @@ app.post('/assignments', authenticate, async (req, res) => {
 
         // Additional validation for specific fields
         if (field === 'name' && typeof assignmentData.name !== 'string') {
+          logger.error('Invalid data type for name field');
           return res.status(400).json({ error: 'Invalid data type for name field' });
         }
         if (field === 'points' && (typeof assignmentData.points !== 'number' || assignmentData.points < 1 || assignmentData.points > 10)) {
+          logger.error('Invalid data type for points field');
           return res.status(400).json({ error: 'Invalid data for points field; it must be a number between 1 and 10' });
+  
         }
       }
     }
     // Check for extra fields in the request body
     for (const field in req.body) {
       if (!allowedFields.includes(field)) {
+        logger.error('Invalid field');
         return res.status(400).json({ error: `Invalid field: ${field}` });
       }
     }
@@ -262,6 +303,7 @@ app.post('/assignments', authenticate, async (req, res) => {
       !assignmentData.num_of_attempts ||
       !assignmentData.deadline
     ) {
+      logger.error('All assignment fields are required');
       return res.status(400).json({ error: 'All assignment fields are required' });
     }
 
@@ -275,6 +317,7 @@ app.post('/assignments', authenticate, async (req, res) => {
     const user = await UserModel.findOne({ where: { email: providedEmail } });
 
     if (!user) {
+      logger.error('User not found');
       return res.status(401).json({ error: 'User not found' });
     }
 
@@ -284,8 +327,10 @@ app.post('/assignments', authenticate, async (req, res) => {
     const createdAssignment = await AssignmentModel.create(assignmentData);
 
     res.status(201).json(createdAssignment);
+    logger.http('Assignment created');
   } catch (error) {
     console.error('Error creating assignment:', error);
+    logger.error('Error creating assignment:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -302,12 +347,15 @@ app.get('/assignments',rejectBody, authenticate, async (req, res) => {
     });
 
     if (!userAssignments) {
+      logger.error('Assignments not found for user');
       return res.status(404).json({ error: 'Assignments not found for this user' });
     }
 
     res.status(200).json(userAssignments);
+    logger.http('Got Assignments');
   } catch (error) {
     console.error('Error getting assignments for user:', error);
+    logger.error('Error getting assignments for user');
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -322,11 +370,13 @@ app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
     const assignment = await AssignmentModel.findByPk(assignmentId);
 
     if (!assignment) {
+      logger.error('Assignment not found');
       return res.status(404).json({ error: 'Assignment not found' });
     }
 
     // Check if the authenticated user is the assignment owner
     if (assignment.user_id !== req.user.id) {
+      logger.error('Permission denied');
       return res.status(403).json({ error: 'Permission denied. You can only delete your own assignments.' });
     }
 
@@ -334,8 +384,10 @@ app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
     await assignment.destroy();
 
     res.status(200).json({ message: 'Assignment successfully deleted' }); // Send success message
+    logger.http('Assignment successfully deleted');
   } catch (error) {
     console.error('Error deleting assignment:', error);
+    logger.error('Error deleting assignment');
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -343,6 +395,7 @@ app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
 
 app.patch('/assignments/:id', (req, res) => {
   res.status(405).json({ error: 'Update (PATCH) is not allowed' });
+  logger.error('Update (PATCH) is not allowed');
 });
 
 
@@ -356,17 +409,21 @@ app.get('/assignments/:assignmentId', rejectBody, authenticate, async (req, res)
     const assignment = await AssignmentModel.findByPk(assignmentId);
 
     if (!assignment) {
+      logger.error('Assignment not found');
       return res.status(404).json({ error: 'Assignment not found' });
     }
 
     // Check if the authenticated user is the assignment owner
     if (assignment.user_id !== req.user.id) {
+      logger.error('Permission denied');
       return res.status(403).json({ error: 'Permission denied. You can only access your own assignments.' });
     }
 
     res.status(200).json(assignment);
+    logger.http('Got User Assignments');
   } catch (error) {
     console.error('Error getting assignment by ID:', error);
+    logger.error('Error getting assignments by ID');
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -383,6 +440,7 @@ app.put('/assignments/:id', async (req, res) => {
     const assignment = await AssignmentModel.findByPk(assignmentId);
 
     if (!assignment) {
+      logger.error('Assignment not found');
       return res.status(404).json({ error: 'Assignment not found' });
     }
 
@@ -390,6 +448,7 @@ app.put('/assignments/:id', async (req, res) => {
     if ('name' in updatedAssignmentData && updatedAssignmentData.name !== null) {
       assignment.name = updatedAssignmentData.name;
     } else {
+      logger.error('Name is null');
       return res.status(400).json({ error: 'name is required and cannot be null.' });
     }
 
@@ -398,9 +457,11 @@ app.put('/assignments/:id', async (req, res) => {
       if (!isNaN(points) && points >= 1 && points <= 10) {
         assignment.points = points;
       } else {
+        logger.error('Invalid value for points');
         return res.status(400).json({ error: 'Invalid value for points. It must be an integer between 1 and 10.' });
       }
     } else {
+      logger.error('Points are null');
       return res.status(400).json({ error: 'points is required and cannot be null.' });
     }
 
@@ -409,15 +470,18 @@ app.put('/assignments/:id', async (req, res) => {
       if (!isNaN(num_of_attempts) && num_of_attempts >= 1) {
         assignment.num_of_attempts = num_of_attempts;
       } else {
+        logger.error('Invalid value for num_of_attempts');
         return res.status(400).json({ error: 'Invalid value for num_of_attempts. It must be an integer greater than or equal to 1.' });
       }
     } else {
+      logger.error('num_of_attempts value are null');
       return res.status(400).json({ error: 'num_of_attempts is required and cannot be null.' });
     }
 
     if ('deadline' in updatedAssignmentData && updatedAssignmentData.deadline !== null) {
       assignment.deadline = updatedAssignmentData.deadline;
     } else {
+      logger.error('Deadline is null');
       return res.status(400).json({ error: 'deadline is required and cannot be null.' });
     }
 
@@ -428,8 +492,10 @@ app.put('/assignments/:id', async (req, res) => {
     await assignment.save();
 
     res.status(204).json('');
+    logger.http('Assignments updated');
   } catch (error) {
     console.error('Error updating assignment:', error);
+    logger.error('Error updating assignment');
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -439,6 +505,7 @@ app.put('/assignments/:id', async (req, res) => {
 checkDatabaseConnection().then(() => {
   app.listen(PORT, () => {
     console.log('Server running on ' + PORT);
+    logger.info('Server running on ' + PORT);
   });
 });
 
