@@ -15,6 +15,13 @@ const dotenv = require('dotenv');
 // const morgan = require('morgan');
 // const customFormat = ':method :url :status :response-time ms';
 const winston = require('winston');
+const StatsD = require('node-statsd');
+
+const client = new StatsD({
+  errorHandler: function (error) {
+    console.error("StatsD error: ", error);
+  }
+});
 
 // Create a logger
 const logger = winston.createLogger({
@@ -195,6 +202,7 @@ app.route('/healthz')
           res.setHeader('Cache-Control', 'no-cache');
           res.status(200).send()
           logger.http('Method allowed.');
+          client.increment('hit.health.point')
         }
       } 
     } catch (error) {
@@ -353,6 +361,7 @@ app.get('/assignments',rejectBody, authenticate, async (req, res) => {
 
     res.status(200).json(userAssignments);
     logger.http('Got Assignments');
+    client.increment('hit.assignment.point')
   } catch (error) {
     console.error('Error getting assignments for user:', error);
     logger.error('Error getting assignments for user');
