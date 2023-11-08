@@ -75,6 +75,8 @@ build {
 
   provisioner "shell" {
     inline = [
+      "sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb",
+      "sudo sudo dpkg -i -E ./amazon-cloudwatch-agent.deb",
       "sudo groupadd csye6225",
       "sudo useradd -s /bin/false -g csye6225 -d /opt/csye6225 -m csye6225",
       "sudo apt update",
