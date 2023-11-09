@@ -202,7 +202,7 @@ app.route('/healthz')
           res.setHeader('Cache-Control', 'no-cache');
           res.status(200).send()
           logger.http('Method allowed.');
-          client.increment('hit.health.point')
+          client.increment('healthzendpoint')
         }
       } 
     } catch (error) {
@@ -273,7 +273,7 @@ app.use(express.json());
 
 
 // Create Assignment
-app.post('/assignments', authenticate, async (req, res) => {
+app.post('/v1/assignments', authenticate, async (req, res) => {
   try {
     // Specify the fields you want to accept
     const allowedFields = ['name', 'points', 'num_of_attempts', 'deadline'];
@@ -336,6 +336,7 @@ app.post('/assignments', authenticate, async (req, res) => {
 
     res.status(201).json(createdAssignment);
     logger.http('Assignment created');
+    client.increment('assignmentscreateendpoint')
   } catch (error) {
     console.error('Error creating assignment:', error);
     logger.error('Error creating assignment:', error);
@@ -344,7 +345,7 @@ app.post('/assignments', authenticate, async (req, res) => {
 });
 
 // Get all Assignments of a user by authentication
-app.get('/assignments',rejectBody, authenticate, async (req, res) => {
+app.get('/v1/assignments',rejectBody, authenticate, async (req, res) => {
   try {
     // Use the authenticated user from the middleware
     const authenticatedUser = req.user;
@@ -361,7 +362,7 @@ app.get('/assignments',rejectBody, authenticate, async (req, res) => {
 
     res.status(200).json(userAssignments);
     logger.http('Got Assignments');
-    client.increment('hit.assignment.point')
+    client.increment('assignmentsgetendpoint')
   } catch (error) {
     console.error('Error getting assignments for user:', error);
     logger.error('Error getting assignments for user');
@@ -371,7 +372,7 @@ app.get('/assignments',rejectBody, authenticate, async (req, res) => {
 
 
 // Delete Assignment by ID
-app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
+app.delete('/v1/assignments/:id',rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.id;
 
@@ -394,6 +395,7 @@ app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
 
     res.status(200).json({ message: 'Assignment successfully deleted' }); // Send success message
     logger.http('Assignment successfully deleted');
+    client.increment('assignmentsdeleteendpoint')
   } catch (error) {
     console.error('Error deleting assignment:', error);
     logger.error('Error deleting assignment');
@@ -402,15 +404,16 @@ app.delete('/assignments/:id',rejectBody, authenticate, async (req, res) => {
 });
 
 
-app.patch('/assignments/:id', (req, res) => {
+app.patch('/v1/assignments/:id', (req, res) => {
   res.status(405).json({ error: 'Update (PATCH) is not allowed' });
   logger.error('Update (PATCH) is not allowed');
+  client.increment('assignmentspatchendpoint')
 });
 
 
 
 // Get Assignment by ID
-app.get('/assignments/:assignmentId', rejectBody, authenticate, async (req, res) => {
+app.get('/v1/assignments/:assignmentId', rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.assignmentId;
 
@@ -430,6 +433,7 @@ app.get('/assignments/:assignmentId', rejectBody, authenticate, async (req, res)
 
     res.status(200).json(assignment);
     logger.http('Got User Assignments');
+    client.increment('assignmentsgetbyidendpoint')
   } catch (error) {
     console.error('Error getting assignment by ID:', error);
     logger.error('Error getting assignments by ID');
@@ -441,7 +445,7 @@ app.get('/assignments/:assignmentId', rejectBody, authenticate, async (req, res)
 
 
 // Update Assignment by ID (Authenticated Users Only)
-app.put('/assignments/:id', async (req, res) => {
+app.put('/v1/assignments/:id', async (req, res) => {
   try {
     const assignmentId = req.params.id;
     const updatedAssignmentData = req.body;
@@ -502,6 +506,7 @@ app.put('/assignments/:id', async (req, res) => {
 
     res.status(204).json('');
     logger.http('Assignments updated');
+    client.increment('assignmentsputendpoint')
   } catch (error) {
     console.error('Error updating assignment:', error);
     logger.error('Error updating assignment');

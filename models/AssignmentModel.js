@@ -1,7 +1,8 @@
 const { Sequelize, DataTypes } = require('sequelize');
-const User = require('./UserModel'); // Import the User model
-const path = require('path');
+const { v4: uuidv4 } = require('uuid'); // Import the UUID library
 const dotenv = require('dotenv');
+const path = require('path');
+
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -9,6 +10,7 @@ const DB_USERNAME = process.env.DB_USERNAME;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME
+console.log(DB_NAME+"heress")
 
 
 const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
@@ -16,13 +18,12 @@ const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
   host: DB_HOST,
 });
 
-//ko
 
 const Assignment = sequelize.define('Assignment', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID, // Change the data type to UUID
+    defaultValue: () => uuidv4(), // Generate a random UUID
     primaryKey: true,
-    autoIncrement: true,
   },
   name: {
     type: DataTypes.STRING,
@@ -56,16 +57,13 @@ const Assignment = sequelize.define('Assignment', {
     allowNull: false,
     readOnly: true,
   },
-  user_id: { // Add this column for the user who created the assignment
-    type: DataTypes.INTEGER,
+  user_id: {
+    type: DataTypes.UUID, // You can also use UUID for foreign keys
     allowNull: false,
   },
 }, {
   tableName: 'assignments',
   timestamps: false,
 });
-
-Assignment.belongsTo(User, { foreignKey: 'user_id' });
-
 
 module.exports = Assignment;
