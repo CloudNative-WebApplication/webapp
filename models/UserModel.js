@@ -1,4 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -19,9 +20,9 @@ const sequelize = new Sequelize(DB_NAME,DB_USERNAME,DB_PASSWORD, {
 
 const User = sequelize.define('User', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true,
+    defaultValue: () => uuidv4(),
   },
   first_name: {
     type: DataTypes.STRING,
