@@ -1,3 +1,9 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
+
+
+
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const loadUserCSV = require('./loadusercsv');
@@ -11,7 +17,6 @@ app.use(bodyParser.json());
 const PORT = 8080;
 const filePath = './user.csv'; 
 loadUserCSV(filePath);
-const dotenv = require('dotenv');
 // const morgan = require('morgan');
 // const customFormat = ':method :url :status :response-time ms';
 const winston = require('winston');
@@ -40,8 +45,28 @@ app.use((req, res, next) => {
   next();
 });
 
-dotenv.config();
 // app.use(morgan('combined'));
+
+// Function to check if environment variables are set
+function areCredentialsAvailable() {
+  return process.env.DATABASE_URL && process.env.DB_USERNAME && process.env.DB_PASSWORD && process.env.DB_NAME;
+}
+
+const checkInterval = 10000; // Check every 10 seconds
+
+function waitForCredentials() {
+const intervalId = setInterval(() => {
+  if (areCredentialsAvailable()) {
+    console.log('Credentials are available. Proceeding to start the application.');
+    clearInterval(intervalId);
+    start();
+  } else {
+    console.log('Waiting for credentials...');
+  }
+}, checkInterval);
+}
+
+waitForCredentials();
 
 // Access environment variables
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -526,9 +551,5 @@ checkDatabaseConnection().then(() => {
 
 
 module.exports = app;
-
-
-
-
 
 
