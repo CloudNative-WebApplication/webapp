@@ -11,4 +11,4 @@ DELETE /assignments/:id: Delete an assignment by ID (requires authentication).
 Usage
 To start the application, run:
 npm install
-npm start 
+npm start
