@@ -1,6 +1,7 @@
 [Unit]
 Description=My Node.js Application
-After=cloud-final.Service
+After=network-online.target cloud-final.service
+Wants=network-online.target
 
 [Service]
 User=csye6225
@@ -10,4 +11,4 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
-WantedBy=cloud-init.target
+
