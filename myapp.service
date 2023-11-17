@@ -1,18 +1,13 @@
 [Unit]
 Description=My Node.js Application
-After=network-online.target cloud-final.service
-Wants=network-online.target
+After=cloud-final.Service
 
 [Service]
 User=csye6225
 WorkingDirectory=/opt/csye6225
-
-# Add a check to ensure .env file exists before starting the app
-ExecStartPre=/bin/bash -c 'while [ ! -f /opt/csye6225/.env ]; do sleep 1; done'
-
 ExecStart=/usr/bin/node /opt/csye6225/app.js
 Restart=always
-RestartSec=5  # Delay between restart attempts
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=cloud-init.target
