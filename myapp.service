@@ -6,7 +6,8 @@ After=cloud-final.Service
 User=csye6225
 WorkingDirectory=/opt/csye6225
 ExecStart=/usr/bin/node /opt/csye6225/app.js
-Restart=always
+Restart=on-failure
+RestartSec=40 
 
 [Install]
 WantedBy=multi-user.target
