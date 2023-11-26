@@ -12,6 +12,8 @@ const { Sequelize } = require('sequelize');
 const bcrypt = require('bcrypt');
 const UserModel = require('./models/UserModel.js'); 
 const AssignmentModel = require('./models/AssignmentModel.js')
+const Submission = require('./models/Submission.js'); // Import Sequelize models
+const AWS = require('aws-sdk');
 const app = express();
 app.use(bodyParser.json());
 const PORT = 8080;
@@ -21,6 +23,7 @@ loadUserCSV(filePath);
 // const customFormat = ':method :url :status :response-time ms';
 const winston = require('winston');
 const StatsD = require('node-statsd');
+const sns = new AWS.SNS({ apiVersion: '2010-03-31' });
 
 const client = new StatsD({
   errorHandler: function (error) {
@@ -80,6 +83,11 @@ const sequelize = new Sequelize(DATABASE_URL, {
   password: DB_PASSWORD,
 });
 
+UserModel.hasMany(AssignmentModel, { foreignKey: 'user_id' });
+AssignmentModel.belongsTo(UserModel, { foreignKey: 'user_id' });
+
+AssignmentModel.hasMany(Submission, { foreignKey: 'assignment_id' });
+Submission.belongsTo(AssignmentModel, { foreignKey: 'assignment_id' });
 
 
 async function buildDatabase() {
@@ -186,7 +194,8 @@ async function start() {
     await AssignmentModel.sync();
     console.log('Assignment model synchronized with the database.');
     logger.info('Assignment model synchronized with the database.');
-
+     
+    await Submission.sync();
     for (const user of users) {
       if (!user.email || !user.password) {
         logger.error('Invalid user data');
@@ -539,6 +548,50 @@ app.put('/v1/assignments/:id', async (req, res) => {
   }
 });
 
+app.post('/v1/assignments/:id/submission', async (req, res) => {
+  try {
+      const assignmentId = req.params.id;
+      const { submission_url } = req.body;
+
+      // Retrieve the assignment
+      const assignment = await AssignmentModel.findByPk(assignmentId);
+      if (!assignment) {
+          return res.status(404).send('Assignment not found');
+      }
+
+      // Check if the submission deadline has passed
+      if (new Date() > new Date(assignment.deadline)) {
+          return res.status(400).send('Submission deadline has passed');
+      }
+
+      // Check the number of existing submissions
+      const submissionCount = await Submission.count({ where: { assignment_id: assignmentId } });
+      if (submissionCount >= assignment.num_of_attempts) {
+          return res.status(403).send('Submission limit exceeded');
+      }
+
+      // Create a new submission
+      const newSubmission = await Submission.create({
+          assignment_id: assignmentId,
+          submission_url,
+          submission_date: new Date(),
+          submission_updated: new Date()
+      });
+
+      // Publish to SNS topic (example: including submission URL and user info)
+      const snsMessage = {
+          Message: JSON.stringify({ submission_url, user_email: 'user@example.com' }),
+          TopicArn: 'YOUR_SNS_TOPIC_ARN'
+      };
+      await sns.publish(snsMessage).promise();
+
+      // Respond with the submission data
+      res.status(201).json(newSubmission);
+  } catch (error) {
+      console.error(error);
+      res.status(500).send('Internal Server Error');
+  }
+});
 
 
 checkDatabaseConnection().then(() => {
