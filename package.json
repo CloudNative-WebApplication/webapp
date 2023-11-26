@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "aws-sdk": "^2.1502.0",
     "bcrypt": "^5.1.1",
     "csv-parser": "^3.0.0",
     "dotenv": "^16.3.1",
@@ -21,7 +22,7 @@
     "nodemon": "^3.0.1",
     "path": "^0.12.7",
     "pg-promise": "^11.5.4",
-    "sequelize": "^6.33.0",
+    "sequelize": "^6.35.1",
     "sequelize-cli": "^6.6.1",
     "uuid": "^9.0.1",
     "winston": "^3.11.0"
