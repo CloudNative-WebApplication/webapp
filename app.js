@@ -1,9 +1,6 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-
-
-
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const loadUserCSV = require('./loadusercsv');
@@ -24,6 +21,7 @@ loadUserCSV(filePath);
 const winston = require('winston');
 const StatsD = require('node-statsd');
 const sns = new AWS.SNS({ apiVersion: '2010-03-31' });
+
 
 const client = new StatsD({
   errorHandler: function (error) {
@@ -76,6 +74,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const DB_USERNAME = process.env.DB_USERNAME;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_NAME = process.env.DB_NAME
+const SNS_ARN = process.env.SNS_ARN
 
 const sequelize = new Sequelize(DATABASE_URL, {
   dialect: 'mysql',
@@ -241,7 +240,7 @@ app.route('/healthz')
       } 
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Server Error' });
+      res.status(503).json({ error: 'Service Unavailable' });
       logger.error('Internal Server Error');
     }
   })
@@ -297,7 +296,7 @@ const authenticate = async (req, res, next) => {
   } catch (error) {
     console.error('Authentication error:', error);
     logger.error('Authentication error');
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 };
 
@@ -374,7 +373,7 @@ app.post('/v1/assignments', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error creating assignment:', error);
     logger.error('Error creating assignment:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 });
 
@@ -400,7 +399,7 @@ app.get('/v1/assignments',rejectBody, authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error getting assignments for user:', error);
     logger.error('Error getting assignments for user');
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 });
 
@@ -433,7 +432,7 @@ app.delete('/v1/assignments/:id',rejectBody, authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error deleting assignment:', error);
     logger.error('Error deleting assignment');
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 });
 
@@ -471,7 +470,7 @@ app.get('/v1/assignments/:assignmentId', rejectBody, authenticate, async (req, r
   } catch (error) {
     console.error('Error getting assignment by ID:', error);
     logger.error('Error getting assignments by ID');
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 });
 
@@ -547,49 +546,89 @@ app.put('/v1/assignments/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+const isValidUrl = (url) => {
+  // Regular expression for URL validation
+  const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-zA-Z]{2,6})(\/[\w.-]*)*\/?$/;
+  return urlPattern.test(url);
+};
 
-app.post('/v1/assignments/:id/submission', async (req, res) => {
+AWS.config.update({
+  region: 'us-east-1',  
+});
+
+function publishToSNSTopic(message, topicArn) {
+  // AWS SDK will automatically use the IAM role associated with the EC2 instance
+  const sns = new AWS.SNS();
+
+  const params = {
+    Message: JSON.stringify(message),
+    TopicArn: topicArn,
+  };
+
+  return sns.publish(params).promise();
+}
+
+app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
   try {
-      const assignmentId = req.params.id;
-      const { submission_url } = req.body;
+    const assignmentId = req.params.id;
+    const { submission_url } = req.body;
+    const userEmail = req.user.email; 
 
-      // Retrieve the assignment
-      const assignment = await AssignmentModel.findByPk(assignmentId);
-      if (!assignment) {
-          return res.status(404).send('Assignment not found');
-      }
+    // Check if submission_url exists and is a non-empty string
+    if (!submission_url || typeof submission_url !== 'string' || !submission_url.trim()) {
+      return res.status(400).json({ error: 'Submission URL is missing or empty' });
+    }
 
-      // Check if the submission deadline has passed
-      if (new Date() > new Date(assignment.deadline)) {
-          return res.status(400).send('Submission deadline has passed');
-      }
+    // Check if submission_url is a valid URL format
+    if (!isValidUrl(submission_url)) {
+      return res.status(400).json({ error: 'Invalid submission URL format' });
+    }
 
-      // Check the number of existing submissions
-      const submissionCount = await Submission.count({ where: { assignment_id: assignmentId } });
-      if (submissionCount >= assignment.num_of_attempts) {
-          return res.status(403).send('Submission limit exceeded');
-      }
+    // Check if the assignment's deadline has passed
+    const assignment = await AssignmentModel.findByPk(assignmentId);
+    if (new Date() > new Date(assignment.deadline)) {
+      return res.status(400).json({ error: 'Deadline for this assignment has passed' });
+    }
 
-      // Create a new submission
-      const newSubmission = await Submission.create({
-          assignment_id: assignmentId,
-          submission_url,
-          submission_date: new Date(),
-          submission_updated: new Date()
-      });
+    // Check for existing submissions and retry limit
+    const existingSubmissions = await Submission.findAll({
+      include: [{
+        model: AssignmentModel,
+        include: [{
+          model: UserModel,
+          where: { email: userEmail }
+        }]
+      }],
+      where: { assignment_id: assignmentId }
+    });
 
-      // Publish to SNS topic (example: including submission URL and user info)
-      const snsMessage = {
-          Message: JSON.stringify({ submission_url, user_email: 'user@example.com' }),
-          TopicArn: 'YOUR_SNS_TOPIC_ARN'
-      };
-      await sns.publish(snsMessage).promise();
+    if (existingSubmissions.length >= assignment.num_of_attempts) {
+      return res.status(400).json({ error: 'Retry limit exceeded' });
+    }
 
-      // Respond with the submission data
-      res.status(201).json(newSubmission);
+    // Create new submission
+    const newSubmission = await Submission.create({
+      assignment_id: assignmentId,
+      submission_url
+    });
+
+    // Prepare the message for SNS
+    const message = {
+      assignmentId: assignmentId,
+      submissionUrl: submission_url,
+      userEmail: userEmail
+    };
+
+  
+    const topicArn = SNS_ARN;
+
+    // Publish the message to the SNS topic
+    await publishToSNSTopic(message, topicArn);
+
+    res.status(201).json(newSubmission);
   } catch (error) {
-      console.error(error);
-      res.status(500).send('Internal Server Error');
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
