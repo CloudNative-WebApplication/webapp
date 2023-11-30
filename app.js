@@ -619,6 +619,8 @@ app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
       userEmail: userEmail
     };
 
+
+
   
     const topicArn = SNS_ARN;
 
@@ -628,7 +630,7 @@ app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
     res.status(201).json(newSubmission);
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(503).json({ error: 'Service Unavailable' });
   }
 });
 
