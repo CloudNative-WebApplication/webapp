@@ -77,7 +77,12 @@ jobs:
           LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
           echo "AMI_ID: $AMI_ID"  # Debugging output
           echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
-          aws ec2 create-launch-template-version --launch-template-name $LAUNCH_TEMPLATE_NAME --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
+
+          # Trim leading and trailing spaces from Launch Template Name
+          LAUNCH_TEMPLATE_NAME="$(echo -e "${LAUNCH_TEMPLATE_NAME}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+          # Create Launch Template Version
+          aws ec2 create-launch-template-version --launch-template-name "$LAUNCH_TEMPLATE_NAME" --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
 
       - name: Get Launch Template Name
         run: |
@@ -102,6 +107,22 @@ jobs:
           echo "Auto Scaling Group Name: $AUTO_SCALING_GROUP_NAME"
           echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
           aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=launchTemplate-941aa22,Version='$Latest'
+
+      - name: Instance Refresh and Wait
+        run: |
+          AUTO_SCALING_GROUP_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'autoScalingGroup-')].AutoScalingGroupName" --output text | head -n 1)
+          REFRESH_ID=$(aws autoscaling start-instance-refresh --auto-scaling-group-name "$AUTO_SCALING_GROUP_NAME" --query 'InstanceRefreshId' --output text)
+          STATUS="pending"
+          while [ "$STATUS" != "Successful" ]; do
+            echo "Waiting for instance refresh to complete..."
+            sleep 60 
+            STATUS=$(aws autoscaling describe-instance-refreshes --auto-scaling-group-name "$AUTO_SCALING_GROUP_NAME" --instance-refresh-ids $REFRESH_ID --query 'InstanceRefreshes[0].Status' --output text)
+            if [ "$STATUS" == "Failed" ]; then
+              echo "Instance refresh failed."
+              exit 1
+            fi
+          done
+          echo "Instance refresh completed successfully."
 
 
 
