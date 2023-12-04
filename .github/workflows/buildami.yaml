@@ -60,8 +60,14 @@ jobs:
                        -var "aws_region=${{ secrets.AWS_REGION }}" \
                        -var "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
                        -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
-                       debian12-ami.pkr.hcl | sudo tee output.txt
+                       ami.pkr.hcl | sudo tee output.txt
           tail -2 output.txt | head -2 | awk 'match($0, /ami-.*/) { print substr($0, RSTART, RLENGTH) }' >> ami.txt
+          
+      - name: Create New Launch Template Version
+        run: |
+          AMI_ID=$(cat ami.txt)
+          LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
+          aws ec2 create-launch-template-version --launch-template-name $LAUNCH_TEMPLATE_NAME --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
 
 
 
