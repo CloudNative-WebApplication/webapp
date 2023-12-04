@@ -52,18 +52,18 @@ jobs:
       - name: Install Packer plugin
         run: packer plugins install github.com/hashicorp/amazon
 
-      - name: Run Packer
+        
+      - name: Build AMI and store ID
         run: |
-          # Install Packer
-          curl -fsSL https://releases.hashicorp.com/packer/1.7.3/packer_1.7.3_linux_amd64.zip -o packer.zip
-          unzip packer.zip
-          sudo mv packer /usr/local/bin/
-          packer init ami.pkr.hcl
-
-          # Run Packer build (modify this command as needed)
           packer build -var "demo_account_id=${{ secrets.DEMO_ACCOUNT_ID }}" \
-                     -var "source_ami=${{ secrets.SOURCE_AMI }}" \
-                     -var "aws_region=${{ secrets.AWS_REGION }}" \
-                     -var "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY}}" \
-                     -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY}}" \
-                      ami.pkr.hcl 
+                       -var "source_ami=${{ secrets.SOURCE_AMI }}" \
+                       -var "aws_region=${{ secrets.AWS_REGION }}" \
+                       -var "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+                       -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
+                       debian12-ami.pkr.hcl | sudo tee output.txt
+          tail -2 output.txt | head -2 | awk 'match($0, /ami-.*/) { print substr($0, RSTART, RLENGTH) }' >> ami.txt
+
+
+
+
+      
