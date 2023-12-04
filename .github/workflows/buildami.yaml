@@ -92,6 +92,17 @@ jobs:
           echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
           aws ec2 create-launch-template-version --launch-template-name $LAUNCH_TEMPLATE_NAME --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
 
+      - name: Update AutoScaling Group
+        run: |
+          AUTO_SCALING_GROUP_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'autoScalingGroup-')].AutoScalingGroupName" --output text | head -n 1)
+          if [ -z "$AUTO_SCALING_GROUP_NAME" ]; then
+              echo "No Auto Scaling Group found with the specified prefix."
+              exit 1
+          fi
+          echo "Auto Scaling Group Name: $AUTO_SCALING_GROUP_NAME"
+          echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=launchTemplate-941aa22,Version='$Latest'
+
 
 
 
