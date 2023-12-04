@@ -78,11 +78,13 @@ jobs:
           echo "AMI_ID: $AMI_ID"  # Debugging output
           echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
 
-          # Trim leading and trailing spaces from Launch Template Name
-          LAUNCH_TEMPLATE_NAME="$(echo -e "${LAUNCH_TEMPLATE_NAME}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          # Extract only the first launch template name
+          LAUNCH_TEMPLATE_NAME=$(echo "$LAUNCH_TEMPLATE_NAME" | cut -f1)
+          echo "Extracted Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
 
           # Create Launch Template Version
           aws ec2 create-launch-template-version --launch-template-name "$LAUNCH_TEMPLATE_NAME" --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
+
 
       - name: Get Launch Template Name
         run: |
