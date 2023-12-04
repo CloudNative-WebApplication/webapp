@@ -53,21 +53,17 @@ jobs:
         run: packer plugins install github.com/hashicorp/amazon
 
         
-      - name: Build AMI and store ID
+      - name: Building Packer Template
         run: |
           packer build -var "demo_account_id=${{ secrets.DEMO_ACCOUNT_ID }}" \
                        -var "source_ami=${{ secrets.SOURCE_AMI }}" \
                        -var "aws_region=${{ secrets.AWS_REGION }}" \
                        -var "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
                        -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
-                       ami.pkr.hcl | sudo tee output.txt
+                       debian12-ami.pkr.hcl | sudo tee output.txt
           tail -2 output.txt | head -2 | awk 'match($0, /ami-.*/) { print substr($0, RSTART, RLENGTH) }' >> ami.txt
-          
-      - name: Verify Contents of ami.txt
-        run: |
-          cat ami.txt  # Display contents of ami.txt for debugging
 
-      - name: Use Demo Account's AWS Credentials
+      - name: Create new launch template version
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DEMO_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMO_SECRET_ACCESS_KEY }}
@@ -75,31 +71,14 @@ jobs:
         run: |
           AMI_ID=$(cat ami.txt)
           LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
-          echo "AMI_ID: $AMI_ID"  # Debugging output
-          echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
-
-          # Extract only the first launch template name
-          LAUNCH_TEMPLATE_NAME=$(echo "$LAUNCH_TEMPLATE_NAME" | cut -f1)
-          echo "Extracted Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
-
-          # Create Launch Template Version
-          aws ec2 create-launch-template-version --launch-template-name "$LAUNCH_TEMPLATE_NAME" --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
-
-
-      - name: Get Launch Template Name
-        run: |
-          LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
-          echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
-
-      - name: Create New Launch Template Version
-        run: |
-          AMI_ID=$(cat ami.txt)
-          LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
-          echo "AMI_ID: $AMI_ID"  # Debugging output
-          echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"  # Debugging output
           aws ec2 create-launch-template-version --launch-template-name $LAUNCH_TEMPLATE_NAME --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
 
-      - name: Update AutoScaling Group
+      - name: Update the autoscaling group
+        id: set_asg_name
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEMO_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMO_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
           AUTO_SCALING_GROUP_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'autoScalingGroup-')].AutoScalingGroupName" --output text | head -n 1)
           if [ -z "$AUTO_SCALING_GROUP_NAME" ]; then
@@ -110,9 +89,12 @@ jobs:
           echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
           aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=launchTemplate-941aa22,Version='$Latest'
 
-      - name: Instance Refresh and Wait
+      - name: Instance refresh and wait
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEMO_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMO_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          AUTO_SCALING_GROUP_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'autoScalingGroup-')].AutoScalingGroupName" --output text | head -n 1)
           REFRESH_ID=$(aws autoscaling start-instance-refresh --auto-scaling-group-name "$AUTO_SCALING_GROUP_NAME" --query 'InstanceRefreshId' --output text)
           STATUS="pending"
           while [ "$STATUS" != "Successful" ]; do
