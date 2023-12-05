@@ -87,7 +87,7 @@ jobs:
           fi
           echo "Auto Scaling Group Name: $AUTO_SCALING_GROUP_NAME"
           echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
-          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version='$Latest'
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version=2
 
       - name: Instance refresh and wait
         env:
