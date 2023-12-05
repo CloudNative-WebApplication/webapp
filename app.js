@@ -546,11 +546,11 @@ app.put('/v1/assignments/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-// const isValidUrl = (url) => {
-//   // Regular expression for URL validation
-//   const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-zA-Z]{2,6})(\/[\w.-]*)*\/?$/;
-//   return urlPattern.test(url);
-// };
+const isValidUrl = (url) => {
+  // Regular expression for URL validation
+  const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-zA-Z]{2,6})(\/[\w.-]*)*\/?$/;
+  return urlPattern.test(url);
+};
 
 AWS.config.update({
   region: 'us-east-1',  
@@ -579,10 +579,10 @@ app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Submission URL is missing or empty' });
     }
 
-    // // Check if submission_url is a valid URL format
-    // if (!isValidUrl(submission_url)) {
-    //   return res.status(400).json({ error: 'Invalid submission URL format' });
-    // }
+    // Check if submission_url is a valid URL format
+    if (!isValidUrl(submission_url)) {
+      return res.status(400).json({ error: 'Invalid submission URL format' });
+    }
 
     // Check if the assignment's deadline has passed
     const assignment = await AssignmentModel.findByPk(assignmentId);
@@ -606,25 +606,11 @@ app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Retry limit exceeded' });
     }
 
-    // // Create new submission
-    // const newSubmission = await Submission.create({
-    //   assignment_id: assignmentId,
-    //   submission_url
-    // });
-    // Create or update submission
-    const [submission, created] = await Submission.findOrCreate({
-      where: { assignment_id: assignmentId },
-      defaults: {
-        submission_url,
-        submission_updated: new Date()
-      }
+    // Create new submission
+    const newSubmission = await Submission.create({
+      assignment_id: assignmentId,
+      submission_url
     });
-
-    if (!created) {
-      submission.submission_url = submission_url;
-      submission.submission_updated = new Date();
-      await submission.save();
-    }
 
 
     // Prepare the message for SNS
@@ -642,7 +628,7 @@ app.post('/v1/assignments/:id/submission', authenticate, async (req, res) => {
     // Publish the message to the SNS topic
     await publishToSNSTopic(message, topicArn);
 
-    res.status(created ? 201 : 200).json(submission);
+    res.status(201).json(newSubmission);
   } catch (error) {
     console.error('Error:', error);
     res.status(503).json({ error: 'Service Unavailable' });
