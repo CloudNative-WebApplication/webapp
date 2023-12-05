@@ -95,7 +95,7 @@ jobs:
           echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
 
           LAUNCH_TEMPLATE_NAME=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateName" --output text)
-          LAUNCH_TEMPLATE_VERSION='Latest'
+          LAUNCH_TEMPLATE_VERSION='$Latest'
 
           if [ -z "$LAUNCH_TEMPLATE_NAME" ]; then
             echo "No Launch Template found for the Auto Scaling Group."
@@ -104,7 +104,7 @@ jobs:
 
           echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"
 
-          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version=2
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version=$LAUNCH_TEMPLATE_VERSION
 
       - name: Instance refresh and wait
         env:
