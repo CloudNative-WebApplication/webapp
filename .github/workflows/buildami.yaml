@@ -62,6 +62,7 @@ jobs:
                        -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
                        ami.pkr.hcl | sudo tee output.txt
           tail -2 output.txt | head -2 | awk 'match($0, /ami-.*/) { print substr($0, RSTART, RLENGTH) }' >> ami.txt
+          echo "Captured AMI ID: $(tail -1 ami.txt)"
 
       - name: Create new launch template version
         env:
@@ -69,9 +70,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMO_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          AMI_ID=$(cat ami.txt)
-          LAUNCH_TEMPLATE_NAME=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[?starts_with(LaunchTemplateName, `launchTemplate`) == `true`].LaunchTemplateName' --output text)
-          aws ec2 create-launch-template-version --launch-template-name $LAUNCH_TEMPLATE_NAME --version-description latest --source-version 1 --launch-template-data "ImageId=$AMI_ID"
+          launch_template_id=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[0].LaunchTemplateId' --output text)
+          ami_id=$(tail -1 ami.txt)
+          aws ec2 create-launch-template-version \
+            --launch-template-id $launch_template_id \
+            --source-version 1 \
+            --version-description "Updated with latest AMI" \
+            --launch-template-data "ImageId=$ami_id"
 
       - name: Update the autoscaling group
         id: set_asg_name
@@ -82,12 +87,24 @@ jobs:
         run: |
           AUTO_SCALING_GROUP_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'autoScalingGroup-')].AutoScalingGroupName" --output text | head -n 1)
           if [ -z "$AUTO_SCALING_GROUP_NAME" ]; then
-              echo "No Auto Scaling Group found with the specified prefix."
-              exit 1
+            echo "No Auto Scaling Group found with the specified prefix."
+            exit 1
           fi
+
           echo "Auto Scaling Group Name: $AUTO_SCALING_GROUP_NAME"
           echo "AUTO_SCALING_GROUP_NAME=$AUTO_SCALING_GROUP_NAME" >> $GITHUB_ENV
-          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version=2
+
+          LAUNCH_TEMPLATE_NAME=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateName" --output text)
+          LAUNCH_TEMPLATE_VERSION='Latest'
+
+          if [ -z "$LAUNCH_TEMPLATE_NAME" ]; then
+            echo "No Launch Template found for the Auto Scaling Group."
+            exit 1
+          fi
+
+          echo "Launch Template Name: $LAUNCH_TEMPLATE_NAME"
+
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $AUTO_SCALING_GROUP_NAME --launch-template LaunchTemplateName=$LAUNCH_TEMPLATE_NAME,Version=$LAUNCH_TEMPLATE_VERSION
 
       - name: Instance refresh and wait
         env:
@@ -99,7 +116,7 @@ jobs:
           STATUS="pending"
           while [ "$STATUS" != "Successful" ]; do
             echo "Waiting for instance refresh to complete..."
-            sleep 60 
+            sleep 60
             STATUS=$(aws autoscaling describe-instance-refreshes --auto-scaling-group-name "$AUTO_SCALING_GROUP_NAME" --instance-refresh-ids $REFRESH_ID --query 'InstanceRefreshes[0].Status' --output text)
             if [ "$STATUS" == "Failed" ]; then
               echo "Instance refresh failed."
