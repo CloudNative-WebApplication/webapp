@@ -306,7 +306,7 @@ app.use(express.json());
 
 
 // Create Assignment
-app.post('/v2/assignments', authenticate, async (req, res) => {
+app.post('/v3/assignments', authenticate, async (req, res) => {
   try {
     // Specify the fields you want to accept
     const allowedFields = ['name', 'points', 'num_of_attempts', 'deadline'];
@@ -378,7 +378,7 @@ app.post('/v2/assignments', authenticate, async (req, res) => {
 });
 
 // Get all Assignments of a user by authentication
-app.get('/v2/assignments',rejectBody, authenticate, async (req, res) => {
+app.get('/v3/assignments',rejectBody, authenticate, async (req, res) => {
   try {
     // Use the authenticated user from the middleware
     const authenticatedUser = req.user;
@@ -405,7 +405,7 @@ app.get('/v2/assignments',rejectBody, authenticate, async (req, res) => {
 
 
 // Delete Assignment by ID
-app.delete('/v2/assignments/:id',rejectBody, authenticate, async (req, res) => {
+app.delete('/v3/assignments/:id',rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.id;
 
@@ -437,7 +437,7 @@ app.delete('/v2/assignments/:id',rejectBody, authenticate, async (req, res) => {
 });
 
 
-app.patch('/v2/assignments/:id', (req, res) => {
+app.patch('/v3/assignments/:id', (req, res) => {
   res.status(405).json({ error: 'Update (PATCH) is not allowed' });
   logger.error('Update (PATCH) is not allowed');
   client.increment('assignmentspatchendpoint')
@@ -446,7 +446,7 @@ app.patch('/v2/assignments/:id', (req, res) => {
 
 
 // Get Assignment by ID
-app.get('/v2/assignments/:assignmentId', rejectBody, authenticate, async (req, res) => {
+app.get('/v3/assignments/:assignmentId', rejectBody, authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.assignmentId;
 
@@ -478,7 +478,7 @@ app.get('/v2/assignments/:assignmentId', rejectBody, authenticate, async (req, r
 
 
 // Update Assignment by ID (Authenticated Users Only)
-app.put('/v2/assignments/:id', async (req, res) => {
+app.put('/v3/assignments/:id', async (req, res) => {
   try {
     const assignmentId = req.params.id;
     const updatedAssignmentData = req.body;
@@ -568,7 +568,7 @@ function publishToSNSTopic(message, topicArn) {
   return sns.publish(params).promise();
 }
 
-app.post('/v2/assignments/:id/submission', authenticate, async (req, res) => {
+app.post('/v3/assignments/:id/submission', authenticate, async (req, res) => {
   try {
     const assignmentId = req.params.id;
     const { submission_url } = req.body;
